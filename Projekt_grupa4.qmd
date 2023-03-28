@@ -1,0 +1,445 @@
+---
+title: "Projekt_grupa4"
+format: html
+editor: visual
+---
+
+# 1. Wprowadzenie
+
+Celem projektu jest dokonanie analizy oferty kursów z programowania w "R", Python'a oraz SQL'a oferowanych na platformie Udemy. Do wykonania analizy wykorzystane zostały dane w formacie CSV ze strony <https://www.kaggle.com/datasets/mahmoudahmed6/udemy-top-5k-course-2022>. Pobrane dane zawierają informacje o 5000 najlepszych kursach oferowanych przez tą platformę w roku 2022. 
+
+## Autorstwo
+
+Aleksandra Rewers - odpowiedzialna za animacje i wykresy
+
+Kiryl Radziul - odpowiedzialny za czyszczenie danych i filtrowanie danych
+
+Aleksandra Patelska - odpowiedzialna za filtrowanie danych i wykresy
+
+# 2. Opis platformy Udemy i opinie użytkowników
+
+Udemy przedstawia się jako globalny rynek edukacyjny, jest to platforma, będąca zbiorem ponad 100 000 kursów internetowych skupiających się zarówno na pogłębianiu umiejetności profesjonalnych, jak i rozwijaniu hobby. Nazwa platformy to kombinacja słów "You" i "academy", czyli "Ty" i "akademia". Obecnie Udemy jest największą platformą szkoleniową online na świecie.
+
+Co wyróżnia Udemy spośród innych platform szkoleniowych?
+
+Podczas gdy inne platformy szkoleniowe skupiają się raczej na kursach w stylu akademickim, tworzonych przez duże uniwersytety, Udemy skupia się na umiejętnościach i praktycznej wiedzy oraz kładzie nacisk na uczenie poprzez doświadczenie i korzystanie ze zdobytej wiedzy w prawdziwym życiu. Dodatkowo, Udemy charakteryzuje się bardziej demokratycznym podejściem do nauki i nauczania, w porównaniu do innych platform szkoleniowych. Tutaj każdy może stworzyć swój kurs i udostępnić go całemu światu.
+
+Jeśli chodzi o opinie użytkowników dotyczące kursów na Udemy, są one bardzo zróżnicowane. Części osób odpowiada forma prowadzenia lekcji i bardzo szeroki wybór kursów, inni twierdzą, że przez możliwość dodawania kursów przez każdego, na platformie pojawia się sporo bezwartościowych treści. Z tego względu ważny jest odpowiedni research, dzięki któremu będziemy w stanie dotrzeć do kursu, który sprosta naszym oczekiwaniom.
+
+# 3. Analiza ofert kursów z programowania w "R", "Python" oraz "SQL" oferowanych na platformie Udemy.
+
+## 3.1. Wczytanie pakietów
+
+```{r}
+library(readxl)
+library(writexl)
+library(tidyverse)
+library(dplyr)
+library(readr)
+library(stringr)
+library(tidyr)
+library(lubridate)
+library(gganimate) 
+library(gapminder) 
+library(gifski) 
+library(ggplot2) 
+library(ggthemes) 
+library(scales) 
+```
+
+## 3.2. Wstawienie danych
+
+```{r}
+data_about_courses <- read_csv("data-raw/data.csv")
+
+head(data_about_courses)
+```
+
+## 3.3. Omówienie danych
+
+W zbiorze danych `data_about_courses` znajduje się 14 kolumn z danymi dotyczącymi 5027 kursów oferowanych na platformie Udemy w 2022 roku. Kolumny te zawierają następujące informacje:
+
+1.  nazwa kursu,
+2.  instruktor kursu,
+3.  adres URL kursu,
+4.  link do zdjęcia kursu,
+5.  opis kursu,
+6.  średnia oraz skala ocen,
+7.  liczba ocen,
+8.  długość kursów podana w godzinach,
+9.  liczba lekcji,
+10. poziom trudności kursu,
+11. cena kursu po przecenie,
+12. bazowa cena kursu,
+13. informacja, czy kurs posiada etykietę "Bestseller",
+14. liczba kursantów.
+
+Dane znajdujące się w kolumnach o numerach: 2, 3, 4 zostaną przez nas odrzucone, bo nie posiadają istotnych z punktu widzenia naszej analizy informacji.
+
+## 3.4.Czyszczenie danych
+
+-   Ekstraktujemy dane liczbowe z kolumn tekstowych (np. Rating: 4.6 out of 5 -\> 4.6).
+
+```{r}
+
+data_base <- data_about_courses |>
+  mutate(reviews_avg1 = str_extract(reviews_avg, "\\d{1,}..")) |>
+  mutate(reviews_count1 = str_extract(reviews_count, "\\d{1,}")) |>
+  mutate(course_duration1 = str_extract(course_duration, "\\d{1,}.?(5| )")) |>
+  mutate(lecture_count1 = str_extract(lectures_count, "\\d{1,}")) |>
+  mutate(main_price1 = str_extract(main_price, "\\d{1,}.+")) |>
+  mutate(price_after_discount1 = str_extract(price_after_discount, "\\d{1,}.+")) |>
+  mutate(students_count1 = str_extract(students_count, "\\d{1,}.+(?= students?)")) |>
+   select(1, 5, 10, 13,19:25)
+  # mutate(students_count2 = str_extract(students_count, "\\d{1,}.?\\d{1,}.?\\d{1,}"))  ## drugi sposób :)
+```
+
+-   Zmieniamy typ danych i zapisujemy je w formacie .xlsx.
+
+```{r}
+data_base$students_count1 <- gsub(",","",data_base$students_count1)
+data_base$main_price1 <- gsub(",","",data_base$main_price1)
+## bez tego, gdy transformujemy w kolumny numieryczne, nie pokazuje liczb z podowu przecinka
+
+data_base$reviews_avg1 <- as.numeric(data_base$reviews_avg1) 
+data_base$reviews_count1 <- as.numeric(data_base$reviews_count1) 
+data_base$course_duration1 <- as.numeric(data_base$course_duration1)
+data_base$lecture_count1 <- as.numeric(data_base$lecture_count1)
+data_base$main_price1 <- as.numeric(data_base$main_price1)
+data_base$price_after_discount1 <- as.numeric(data_base$price_after_discount1)
+data_base$students_count1 <- as.numeric(data_base$students_count1)
+
+head(data_base)
+write_xlsx(data_base, path = 'data/wyniki_ekstraktu.xlsx')
+
+```
+
+## 3.5.Filtrowanie danych
+
+1.  Filtr pierwszy dotyczy wybrania tych kursów, których opisy odnoszą się do jednego z trzych języków programowania: R, Python lub SQL.
+
+```{r}
+course_filter1 <-  data_base |>  
+
+  filter(str_detect(tolower(`course description`), "(\\s)r(\\s)$?|python$?|(mysql?|sql$?|sql.server?)"
+)) |>
+   mutate(języki = str_extract(str_to_lower(`course description`), "(\\s)r(\\s)$?|python$?|(mysql?|sql$?|sql.server?)"))
+
+  course_filter1 |>
+select(`course description`, języki)
+
+head(course_filter1)  
+```
+
+-   Wstawienie kolumn z poszczególnymi językami i przypisanie do nich kursów.
+
+```{r}
+lang <- course_filter1 |>
+     mutate(r_lang = str_extract(str_to_lower(`course description`), "(\\s)r(\\s)$?")) |>
+     mutate(python_lang = str_extract(str_to_lower(`course description`), "python$?")) |>
+     mutate(sql_lang = str_extract(str_to_lower(`course description`), "(mysql?|sql$?|sql.server?)"))
+
+ # select(`course description`, r_lang, python_lang, sql_lang, reviews_count1       # ,reviews_avg1) 
+  
+
+r1 <- lang |>
+  filter(str_detect(tolower(`course description`), "(\\s)r(\\s)$?"))
+
+python1 <- lang |>
+  filter(str_detect(tolower(`course description`), "python$?"))
+
+sql1 <- lang |>
+  filter(str_detect(tolower(`course description`), "(mysql?|sql$?|sql.server?)")) 
+
+summarise(r1, avg_reviews = mean(reviews_avg1)) 
+summarise(python1, avg_reviews = mean(reviews_avg1))
+summarise(sql1, avg_reviews = mean(reviews_avg1)) 
+
+summarise(r1,avg_reviews_count = median(reviews_count1))
+summarise(python1,avg_reviews_count = median(reviews_count1))
+summarise(sql1, avg_reviews_count = median(reviews_count1))
+```
+
+-   Sklejenie kolumn z poszczególnymi językami w jedną kolumnę - funkcję pozostawiamy zakomentowaną, ponieważ ostatecznie nie została użyta.
+
+``` {#{r}
+#lang2 <- 
+#unite(lang, languages, r_lang, python_lang, sql_lang, sep = "," ,na.rm=T )
+```
+
+**WYKRES:** Średnia cena kursów w zależności od języka programowania.
+
+```{r}
+ceny_kursow <- lang |> 
+
+    select(course_duration1, price_after_discount1, main_price1, języki) |> 
+
+  filter(between(course_duration1, 5, 50)) |>  
+
+  ggplot(aes(x = języki, y = main_price1)) + 
+
+  geom_jitter(alpha = 0.4, width = 0.4) +  
+
+  geom_boxplot(alpha = 0.3, color = "black") + 
+
+  stat_summary(fun = mean, geom = "point", color = "#336600", size = 3) + 
+
+  labs(x = "Języki", y = "Cena kursu", title = "Średnia cena kursów", subtitle = "W zależności od jezyka programowania", 
+
+       caption = "Źródło: Opracowanie własne.") + 
+
+  transition_states(języki,  wrap=TRUE) + 
+
+  shadow_mark(alpha = 0.5)+ 
+
+  enter_grow()+ 
+
+  exit_fade()+ 
+
+  ease_aes('back-out') +
+  theme_minimal()
+
+print(ceny_kursow)
+```
+
+Powyższy wykres przedstawia, jak kształtują się ceny kursów w zależności od języka programowania. Średnia cena kursów jest wyższa od mediany, co wskazuje na występowanie asymetrii prawostronnej. Oznacza to, że na platformie oferowanych jest więcej kursów o niskich cenach. Największa asymetria dotyczy kursów programowania w języku SQL oraz MySQL, a najmniejsza w Pytonie. Najdroższe są średnio kursy z programowania w języku R.
+
+2.  Filtr z minimalną liczbą ocen, którą kurs musi mieć abyśmy wzięli go pod uwagę. Chcemy, aby kurs miał średnią ocen równą lub większą od średniej ocen wszystkich kursów.
+3.  Filtr z minimalną oceną jaką kurs musi mieć abyśmy wzięli go pod uwagę. Chcemy, aby kurs miał liczbę ocen równą lub większą od mediany liczby ocen. 
+
+```{r}
+review_mean <- mean(lang$reviews_avg1, na.rm=TRUE)
+review_median <-median(lang$reviews_count1, na.rm=TRUE)
+
+course_filter2 <- lang |> 
+filter(reviews_avg1>=review_mean, reviews_count1>=review_median)
+review_mean
+review_median
+course_filter2
+```
+
+**WYKRES:** Zależność ceny od długości kursu.
+
+```{r}
+course_filter2 |>
+  ggplot(aes(x = course_duration1, y = main_price1, color = języki)) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "#1b9e77") +
+  labs(x = "Długość (h) ", y = "Cena", title = "Zależność ceny od długości kursu",
+       caption = "Źródło: Opracowanie własne.", color = "Języki") +
+   theme_minimal()+
+  scale_color_brewer(type = "qual", palette = "2")
+
+```
+
+Wykres przedstawia zależność ceny od długości kursu z rozróżnieniem na poszczególne języki. Wykres ma dużo danych, które sprawiają, że staje się nieczytelny, dlatego w następnym filtrze odrzucamy wartości skrajne, aby mieć pełniejszy obraz większości kursów.
+
+4.  Bierzemy pod uwagę kursy o długości \<50h.
+
+```{r}
+course_filter3 <- course_filter2 |>
+  filter(between(course_duration1, 5, 50)) |> 
+  mutate(price_per_hour = round(main_price1/course_duration1, digits = 2))
+```
+
+**WYKRES:** Zależność ceny od długości kursu - ograniczenie długości kursu.
+
+```{r}
+course_filter3 |>
+  ggplot(aes(x = course_duration1, y = main_price1, color = języki)) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "#1b9e77") +
+  labs(x = "Długość (h)", y = "Cena", title = "Zależność ceny od długości kursu", subtitle = "Ograniczenie ",
+       caption = "Źródło: Opracowanie własne.", color = "Języki") +
+  theme_minimal() +
+  scale_color_brewer(type = "qual", palette = "2")
+```
+
+Na powyższym wykresie widać, że cena kursu nie rośnie wprost proporcjonalnie do jego długości. Stąd można wnioskować, że bardziej opłacalne są dłuższe kursy.
+
+**WYKRES:** Zależność ceny od długości kursu z podziałem na poszczególne języki.
+
+```{r}
+course_filter3 |> 
+
+  filter(between(course_duration1, 5, 50)) |>  
+
+  #filter(rlang %in% c("r")) |>  
+
+  ggplot(aes(x = course_duration1, y = main_price1)) + 
+
+  geom_point(color = "lightgreen") + 
+
+  geom_smooth(method = "lm", color = "#1b9e77") + 
+
+  geom_jitter(alpha = 0.2, width = 0.3) +  
+
+facet_wrap(~języki) + 
+
+  labs(x = "Długość (h)", y = "Cena", title = "Zależność ceny od długości kursu", subtitle = "Ograniczenie ", 
+
+       caption = "Źródło: Opracowanie własne.") +
+  theme_minimal()+
+  scale_color_brewer(type = "qual", palette = "2")
+```
+
+Po rozdzieleniu obserwacji na poszczególne języki widać, że ceny kursów z Python'a, SQL'a i MySQL'a rosną nieproporcjonalnie wolno w stosunku do ich długości.
+
+W przypadku kursów z R'a wynik może być niereprezentatywny ze względu na małą liczbę obserwcji.
+
+**WYKRES:** Zależność ceny za godzinę od długości kursu.
+
+```{r}
+course_filter3 |>
+  ggplot(aes(x = course_duration1, y = price_per_hour, color = języki)) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "#1b9e77") +
+  labs(x = "Długość (h)", y = "Cena za godzinę", title = "Zależność ceny za godzinę od długości kursu", subtitle = "Ograniczenie ",
+       caption = "Źródło: Opracowanie własne.", color = "Języki") +
+  theme_minimal()+
+  scale_color_brewer(type = "qual", palette = "2")
+```
+
+Powyższy wykres potwierdza nasze spostrzeżenie, że cena kursu za godzinę spada wraz ze wzrostem jego długości.
+
+5.  Obliczamy średnią długość lekcji wyrażoną w minutach jako długość kursu\*60/liczbę lekcji. Następnie odrzucamy kursy, których średnia długość lekcji przekracza 20 minut, bo lepsze dla użytkownika są kursy składające się z większej liczby krótszych lekcji. Naszą decyzję motywujemy tym, że:
+
+-   im więcej lekcji, tym łatwiejszy dostęp do interesującego użytkownika zagadnienia, ponieważ każda lekcja jest odpowiednio zatytuowana
+
+-   użytkownik widząc, że lekcja trwa 20+ minut musi dobrze zaplanować, kiedy znajdzie w ciągu dnia/ tygodnia czas na przerobienie danego materiału, natomiast w przypadku krótkich lekcji łatwo ten czas wygospodarować, co skutkuje większą systematycznością
+
+6.  Odrzucamy kursy, których długość nie przekracza 5h, dla kursów o konkretnym poziomie i kursy, których długość nie przekracza 15h, dla kursów `All Levels`. Uważamy, że jeśli nauka języka ma być skuteczna, musi trwać odpowiednio długo. Kurs kompleksowy, zawierający wszystkie poziomy trudności powinien również trwać dłużej, niż kursy ograniczone do poszczególnych etapów kształcenia.
+
+```{r}
+course_filter4 <- course_filter3|>
+  mutate(srednia_dlugosc_lekcji = round(course_duration1*60/lecture_count1, digits = 2)) |>
+  filter(srednia_dlugosc_lekcji <= 20) |>
+  filter((level == 'All Levels' &  course_duration1 > 15.0 )|(level == 'Beginner'|level =='Intermediate'|level =='Expert' & course_duration1 > 5.0 ))
+
+```
+
+**WYKRES:** Liczba kursantów obrazująca popularność kursów z podziałem na języki.
+
+```{r}
+popularnosc_kursow <- 
+
+ggplot(course_filter4, aes(x = języki, y=students_count1)) + 
+
+scale_y_continuous(labels = comma) + 
+
+geom_col(color = "#336600", fill = "white") + 
+
+labs(x = "Języki", y = "Liczba kursantów", title = "Popularność jezyków programowania", subtitle = "Liczona liczbą kursantów", 
+
+       caption = "Źródło: Opracowanie własne.") + 
+
+
+transition_states(języki) + 
+
+enter_fade() + 
+
+exit_shrink() + 
+
+ease_aes('sine-in-out') +
+  theme_minimal()
+  
+
+print(popularnosc_kursow)
+```
+
+Jak widać na powyższym wykresie, zdecydowanie największą popularnością chaakteryzują się kursy dotyczące języka Python.
+
+**HISTOGRAM:** Rozkład cen za godzinę dla pozostałych kursów.
+
+```{r}
+hist(x = course_filter4$price_per_hour,  
+     breaks = "fd",
+     main = "Rozkład ceny za godzinę",
+     xlab = "Cena za godzinę",
+     ylab = "Częstość występowania",
+     col = "#336600")
+```
+
+Na powyższym histogramie widać, że rozkład zmiennej odbiega od rozkładu normalnego, występuje kilka skrajnie dużych wartości, które niekorzystnie wpływają na wysokość średniej, dlatego do opisu zmiennej wykorzystana zostanie mediana.
+
+7.  Odrzucenie kursów, których cena za godzinę jest niewymiernie wysoka do długości kursu.
+
+```{r}
+price_per_hour_median = median(course_filter4$price_per_hour, na.rm=T)
+course_filter5 <- course_filter4 |>
+  filter(price_per_hour <= price_per_hour_median)
+
+```
+
+**WYKRES:**
+
+```{r}
+bestseller <- data_base |>
+  filter(reviews_avg1 <= 5 & reviews_avg1 >= 1.7) |>
+  mutate(reviews_avg2 = cut(reviews_avg1, breaks = c(0, 3.5, 4,4.25, 4.5, 4.75, 5)), include.lowest=T) |>
+  group_by(reviews_avg2, course_flag) |>
+  summarise(students_count5 = mean((students_count1), na.rm=T))
+
+ggplot(data = bestseller, aes(y = course_flag,x = reviews_avg2, fill = students_count5)) + 
+    geom_tile(color = 'white',show.legend = TRUE) +
+    scale_fill_gradient(low="#99FF66",
+                        high="#336633",
+                        guide="colorbar") +
+    theme(panel.background = element_blank()) +
+  labs(title = 'Średnia liczba kursantów',
+       x = 'Ocena kursu według studentów', y = 'Czy kurs posiada status "Bestseller?"', fill = "Liczba studentów") 
+```
+
+Na powyższym wykresie zauważony może zostać trend dotyczący wyborów kursantów. W przypadku kursów oznaczonych jako "bestseller", wyraźnie widać, że im wyższa jest ocena kursu, tym większa liczba zakupionych kursów. Część kursów, które nie posiada statusu "Bestseller" otrzymała równie wysokie oceny, co te z etykietami, jednak ich popularność była zdecydowanie mniejsza.
+
+# 4. Podsumowanie
+
+Naszym celem było wybranie najlepszych kursów dotyczących nauki programów: Python, SQL oraz R dostępnych na platformie Udemy w roku 2022. Analiza, której dokonaliśmy w oparciu o kryteria dotyczące ceny, długości kursu, średniej ocen kursów, liczby ocen oraz stosunku ceny do długości kursu pozwoliła nam wyłonić 10% najlepszych kursów oferowanych na platformie Udemy, z których znaczna większość dotyczyła języka Python. Dane o nazwie `course_filter5` zawierają zwycięskie 94 kursy.
+
+## PS.
+
+Wykonaliśmy również porównanie różnych statystyk opisowych w poszczególnych językach z podziałem na poziom trudności kursu. Analiza ta nie została ostatecznie wykorzystana w projekcie, ale myślimy, że warto też zwrócić na nią uwagę.
+
+```{r}
+difference_between_level_python <- python1 |>
+  select(python_lang, level, course_flag, main_price1, price_after_discount1, course_duration1, lecture_count1) |>
+ # filter(course_flag == "Bestseller") |> #filtrowanie według Bestsellera
+  group_by(level) |> # grupowanie według zaawansowania
+  summarise(
+    avgMainPrice = mean((main_price1), na.rm=T), # średnia ceny głównej
+    avgPrice_after_disc = mean((price_after_discount1), na.rm=T), 
+    sdPrice_after_disc = sd((price_after_discount1), na.rm=T), # odczylenie standardowe
+    avg_count_duration = mean(course_duration1),
+    avg_lecture_count = mean(lecture_count1)) |>
+  arrange(-avgMainPrice) |>
+  arrange(-avgPrice_after_disc) |>
+  mutate(wartosc = avgPrice_after_disc/avg_count_duration) # wartość cena ze zniżką na czas kursu 
+  
+  
+difference_between_level_r <- r1 |>
+  select(r_lang, level, course_flag,main_price1, price_after_discount1, course_duration1, lecture_count1) |>
+#  filter(course_flag == 'Bestseller') |>
+  group_by(level) |>
+  summarise(
+    avgMainPrice = mean((main_price1), na.rm=T),
+    avgPrice_after_disc = mean(price_after_discount1), 
+    sdPrice_after_disc = sd(price_after_discount1),
+    avg_count_duration = mean(course_duration1),
+    avg_lecture_count = mean(lecture_count1)) |>
+  arrange(-avgMainPrice) |>
+  mutate(wartosc = avgPrice_after_disc/avg_count_duration)
+
+
+difference_between_level_sql <- sql1 |>
+  select(sql_lang, level, course_flag, course_duration1, lecture_count1, main_price1, price_after_discount1) |>
+ # filter(course_flag == 'Bestseller') |>
+  group_by(level) |>
+  summarise(
+    avgMainPrice = mean((main_price1), na.rm=T),
+    avgPrice_after_disc = mean(price_after_discount1),
+    sdPrice_after_disc = sd(price_after_discount1),
+    avg_count_duration = mean(course_duration1),
+    avg_lecture_count = mean(lecture_count1)) |>
+    arrange(-avgMainPrice) |>
+  mutate(wartosc = avgPrice_after_disc/avg_count_duration)
+```
